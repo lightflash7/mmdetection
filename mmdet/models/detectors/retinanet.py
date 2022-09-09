@@ -5,6 +5,7 @@ from .single_stage import SingleStageDetector
 
 @DETECTORS.register_module()
 class RetinaNet(SingleStageDetector):
+# keypoint: 这里继承了single stage的检测模型配置
     """Implementation of `RetinaNet <https://arxiv.org/abs/1708.02002>`_"""
 
     def __init__(self,

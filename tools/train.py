@@ -105,13 +105,16 @@ def parse_args():
 
 
 def main():
+    # tag: *****加载配置**************************************
     args = parse_args()
 
     cfg = Config.fromfile(args.config)
 
+    # 使用MMDET_DATASETS环境变量加载数据路径配置
     # update data root according to MMDET_DATASETS
     update_data_root(cfg)
 
+    # 使用args.cfg_options进行补充配置
     if args.cfg_options is not None:
         cfg.merge_from_dict(args.cfg_options)
 
@@ -127,6 +130,7 @@ def main():
                           ' configuration file. Please update all the '
                           'configuration files to mmdet >= 2.24.1.')
 
+    # quest: use for what?
     # set multi-process settings
     setup_multi_processes(cfg)
 
@@ -134,6 +138,7 @@ def main():
     if cfg.get('cudnn_benchmark', False):
         torch.backends.cudnn.benchmark = True
 
+    # 工作目录
     # work_dir is determined in this priority: CLI > segment in file > filename
     if args.work_dir is not None:
         # update configs according to CLI args if args.work_dir is not None
@@ -142,9 +147,13 @@ def main():
         # use config filename as default work_dir if cfg.work_dir is None
         cfg.work_dir = osp.join('./work_dirs',
                                 osp.splitext(osp.basename(args.config))[0])
+
+    # resume
     if args.resume_from is not None:
         cfg.resume_from = args.resume_from
     cfg.auto_resume = args.auto_resume
+    
+    # gpu
     if args.gpus is not None:
         cfg.gpu_ids = range(1)
         warnings.warn('`--gpus` is deprecated because we only support '
@@ -159,6 +168,8 @@ def main():
     if args.gpus is None and args.gpu_ids is None:
         cfg.gpu_ids = [args.gpu_id]
 
+
+    # tag: *****分布式训练**************************************
     # init distributed env first, since logger depends on the dist info.
     if args.launcher == 'none':
         distributed = False
@@ -169,12 +180,18 @@ def main():
         _, world_size = get_dist_info()
         cfg.gpu_ids = range(world_size)
 
+
+    # tag: *****创建工作目录***************************
     # create work_dir
     mmcv.mkdir_or_exist(osp.abspath(cfg.work_dir))
+
+    # 复制配置文件到工作目录,并初始化工作目录
     # dump config
     cfg.dump(osp.join(cfg.work_dir, osp.basename(args.config)))
     # init the logger before other steps
     timestamp = time.strftime('%Y%m%d_%H%M%S', time.localtime())
+
+    # tag: *****日志文件*****************************************
     log_file = osp.join(cfg.work_dir, f'{timestamp}.log')
     logger = get_root_logger(log_file=log_file, log_level=cfg.log_level)
 
@@ -204,6 +221,9 @@ def main():
     meta['seed'] = seed
     meta['exp_name'] = osp.basename(args.config)
 
+
+    # tag: *****创建模型**********************************************
+    # train_cfg和test_cfg均已经不用，配置全在cfg.model中
     model = build_detector(
         cfg.model,
         train_cfg=cfg.get('train_cfg'),
