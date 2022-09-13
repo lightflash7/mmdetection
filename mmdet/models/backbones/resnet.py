@@ -285,6 +285,7 @@ class Bottleneck(BaseModule):
             if self.with_plugins:
                 out = self.forward_plugin(out, self.after_conv3_plugin_names)
 
+            # keypoint: residual前调整channel数，保证能够相加
             if self.downsample is not None:
                 identity = self.downsample(x)
 
@@ -391,12 +392,14 @@ class ResNet(BaseModule):
                  init_cfg=None):
         super(ResNet, self).__init__(init_cfg)
         self.zero_init_residual = zero_init_residual
+        
+        # 层数
         if depth not in self.arch_settings:
             raise KeyError(f'invalid depth {depth} for resnet')
 
         block_init_cfg = None
         assert not (init_cfg and pretrained), \
-            'init_cfg and pretrained cannot be specified at the same time'
+            'init_cfg and pretrained cannot be specified at the same time' # pretrained被弃用了
         if isinstance(pretrained, str):
             warnings.warn('DeprecationWarning: pretrained is deprecated, '
                           'please use "init_cfg" instead')
@@ -454,6 +457,7 @@ class ResNet(BaseModule):
         self.stage_blocks = stage_blocks[:num_stages]
         self.inplanes = stem_channels
 
+        # tag: stem_layer:3,64,k=7,s=2的卷积+BN+ReLU
         self._make_stem_layer(in_channels, stem_channels)
 
         self.res_layers = []
@@ -563,6 +567,7 @@ class ResNet(BaseModule):
         return getattr(self, self.norm1_name)
 
     def _make_stem_layer(self, in_channels, stem_channels):
+        # 如果开启deep_stem则用多个3*3卷积替换掉7*7的卷积(ResNetV1d作出的修改)
         if self.deep_stem:
             self.stem = nn.Sequential(
                 build_conv_layer(
@@ -611,6 +616,7 @@ class ResNet(BaseModule):
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
     def _freeze_stages(self):
+        # tag:eval()+requires_grad=False才算
         if self.frozen_stages >= 0:
             if self.deep_stem:
                 self.stem.eval()

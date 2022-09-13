@@ -40,6 +40,7 @@ class ResLayer(Sequential):
         if stride != 1 or inplanes != planes * block.expansion:
             downsample = []
             conv_stride = stride
+            # 是否使用平均池化下采样,否则使用卷积下采样
             if avg_down:
                 conv_stride = 1
                 downsample.append(
@@ -52,7 +53,7 @@ class ResLayer(Sequential):
                 build_conv_layer(
                     conv_cfg,
                     inplanes,
-                    planes * block.expansion,
+                    planes * block.expansion, # 用1*1卷积，让residual block的输入变得和输出channnel数相同
                     kernel_size=1,
                     stride=conv_stride,
                     bias=False),
@@ -61,6 +62,8 @@ class ResLayer(Sequential):
             downsample = nn.Sequential(*downsample)
 
         layers = []
+        # keypoint: downsample其实是用来调整输入的channel数以便与输出求和,并非下采样
+        # tag: 一般情况不会用downsample_first=False，否则输入输出channel对应不上
         if downsample_first:
             layers.append(
                 block(
